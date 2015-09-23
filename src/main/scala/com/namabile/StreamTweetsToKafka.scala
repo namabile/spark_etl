@@ -12,7 +12,7 @@ import org.apache.avro.specific.SpecificDatumWriter
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerConfig, ProducerRecord}
 
 // see here http://capykoa.com/articles/14
-object streamTweets {
+object StreamTweetsToKafka {
 
   private val conf = ConfigFactory.load()
 
