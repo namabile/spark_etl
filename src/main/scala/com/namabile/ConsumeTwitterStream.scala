@@ -19,7 +19,8 @@ object ConsumeTwitterStream extends App {
 
   private val ssc = new StreamingContext(sparkConf, Seconds(2))
 
-  ssc.checkpoint("hdfs://ip-10-0-0-127.ec2.internal:8020/checkPointDir")
+  //ssc.checkpoint("hdfs://ip-10-0-0-127.ec2.internal:8020/checkPointDir")
+  ssc.checkpoint("./checkpointDir")
 
   val kafkaConf = Map(
     "metadata.broker.list" -> conf.getString("addresses.kafka"), // Default kafka broker list location
