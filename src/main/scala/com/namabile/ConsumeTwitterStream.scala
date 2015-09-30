@@ -7,13 +7,14 @@ import org.apache.avro.io.DecoderFactory
 import org.apache.avro.specific.SpecificDatumReader
 import org.apache.spark._
 import org.apache.spark.storage.StorageLevel
+import org.apache.spark.streaming.StreamingContext._
 import org.apache.spark.streaming.kafka.KafkaUtils
 import org.apache.spark.streaming.{Minutes, Seconds, StreamingContext}
 
 object ConsumeTwitterStream {
   // implement me
   private val conf = ConfigFactory.load()
-  private val sparkMaster = conf.getString("addresses.sparkMaster")
+  private val sparkMaster = conf.getString("addresses.spark_master")
 
   private val sparkConf = new SparkConf().setAppName("WindowTweetCount").setMaster(sparkMaster)
 

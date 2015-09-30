@@ -54,6 +54,7 @@ object StreamTweetsToKafka {
       val tweet = buildTweet(s)
       val tweetBytes = serializeTweet(tweet)
       val message = new ProducerRecord[String, Array[Byte]](topic, null, tweetBytes) // Create a new producer record to send the message in
+      println(tweet)
       println("tweet!")
       producer.send(message)
     }
