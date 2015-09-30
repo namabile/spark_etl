@@ -1,2 +1,4 @@
 *.sw[o|p]
 target/
+*.log
+logs/

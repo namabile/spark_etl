@@ -3,7 +3,9 @@
     "type": "record",
     "name": "Tweet",
         "fields": [
+            {"name": "id", "type": "long"},
             {"name": "name", "type": "string"},
-            {"name": "text", "type": "string"}
+            {"name": "text", "type": "string"},
+            {"name": "created_at", "type": "long"}
         ]
 }

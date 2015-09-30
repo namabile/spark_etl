@@ -1,6 +1,7 @@
 package com.namabile
 
 import java.util
+import java.util.Date._
 import java.io.ByteArrayOutputStream
 
 import com.typesafe.config.ConfigFactory
@@ -30,7 +31,7 @@ object StreamTweetsToKafka {
 
   // Zookeeper connection properties
   private val props = new util.HashMap[String, Object]()
-  private val brokers = conf.getString("kafka.brokers")
+  private val brokers = conf.getString("addresses.kafka")
 
   props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokers)
   // Kafka avro message stream comes in as a byte array
@@ -43,7 +44,7 @@ object StreamTweetsToKafka {
     val twitterStream = new TwitterStreamFactory(getTwitterConf).getInstance
     twitterStream.addListener(simpleStatusListener)
     twitterStream.filter(new FilterQuery().follow(1344951,5988062,807095,3108351))
-    Thread.sleep(10000)
+    Thread.sleep(100000)
     twitterStream.cleanUp
     twitterStream.shutdown
   }
@@ -64,7 +65,11 @@ object StreamTweetsToKafka {
   }
 
   def buildTweet(s: Status): Tweet = {
-    new Tweet(s.getUser.getName, s.getText)
+    new Tweet(
+      s.getUser.getId,
+      s.getUser.getName,
+      s.getText,
+      s.getCreatedAt.getTime)
   }
 
   def serializeTweet(tweet: Tweet): Array[Byte] = {
