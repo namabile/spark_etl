@@ -8,7 +8,7 @@ import org.apache.avro.specific.SpecificDatumReader
 import org.apache.spark._
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.streaming.StreamingContext._
-import org.apache.spark.streaming.kafka.KafkaUtils
+import org.apache.spark.streaming.kafka._
 import org.apache.spark.streaming.{Minutes, Seconds, StreamingContext}
 
 object ConsumeTwitterStream extends App {
@@ -19,8 +19,7 @@ object ConsumeTwitterStream extends App {
 
   private val ssc = new StreamingContext(sparkConf, Seconds(2))
 
-  //ssc.checkpoint("hdfs://ip-10-0-0-127.ec2.internal:8020/checkPointDir")
-  ssc.checkpoint("./checkpointDir")
+  ssc.checkpoint("hdfs://ip-10-0-0-127.ec2.internal:8020/user/root/checkPointDir")
 
   val kafkaConf = Map(
     "metadata.broker.list" -> conf.getString("addresses.kafka"), // Default kafka broker list location
@@ -35,7 +34,7 @@ object ConsumeTwitterStream extends App {
   val lines = KafkaUtils.createStream[String, Array[Byte], DefaultDecoder, DefaultDecoder](ssc, kafkaConf, topicMap, StorageLevel.MEMORY_ONLY_SER).map(_._2)
 
   // Get a count of the tweets per user in the last 10 minutes, refreshing every 2 seconds
-  val tweetRDD = lines.map{ bytes: Array[Byte] => tweetDecode(bytes) }.map{ tweet: Tweet => (tweet.name, 1L) }
+  val tweetRDD = lines.map{ bytes: Array[Byte] => tweetDecode(bytes) }.map{ tweet: Tweet => (tweet.id, 1L) }
   val tweetCounts = tweetRDD.reduceByKeyAndWindow(_ + _, _ - _, Minutes(10), Seconds(2), 2)
 
   tweetCounts.print // Print out the results.  Or we can produce new kafka events containing the mapped ids.
