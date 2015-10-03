@@ -10,7 +10,6 @@ import org.apache.spark.storage.StorageLevel
 import org.apache.spark.streaming.StreamingContext._
 import org.apache.spark.streaming.kafka._
 import org.apache.spark.streaming.{Minutes, Seconds, StreamingContext}
-import org.apache.spark.sql._
 import org.apache.parquet.avro._
 import org.apache.hadoop.fs.Path
 import com.google.common.io.Files
@@ -20,11 +19,7 @@ object ConsumeTwitterStream extends App {
   private val sparkMaster = conf.getString("addresses.spark_master")
 
   private val sparkConf = new SparkConf().setAppName("WindowTweetCount").setMaster(sparkMaster)
-  private val sc = new SparkContext(sparkConf)
   private val ssc = new StreamingContext(sparkConf, Seconds(2))
-  private val sqlContext = new org.apache.spark.sql.SQLContext(sc)
-
-  import sqlContext.implicits._
 
   ssc.checkpoint("hdfs://ip-10-0-0-127.ec2.internal:8020/user/root/checkPointDir")
 
