@@ -10,16 +10,21 @@ import org.apache.spark.storage.StorageLevel
 import org.apache.spark.streaming.StreamingContext._
 import org.apache.spark.streaming.kafka._
 import org.apache.spark.streaming.{Minutes, Seconds, StreamingContext}
-import org.apache.spark.rdd.RDD
+import org.apache.spark.sql._
+import org.apache.parquet.avro._
+import org.apache.hadoop.fs.Path
+import com.google.common.io.Files
 
 object ConsumeTwitterStream extends App {
   private val conf = ConfigFactory.load()
   private val sparkMaster = conf.getString("addresses.spark_master")
 
   private val sparkConf = new SparkConf().setAppName("WindowTweetCount").setMaster(sparkMaster)
-  private val ssc = new StreamingContext(sparkConf, Seconds(2))
   private val sc = new SparkContext(sparkConf)
+  private val ssc = new StreamingContext(sparkConf, Seconds(2))
   private val sqlContext = new org.apache.spark.sql.SQLContext(sc)
+
+  import sqlContext.implicits._
 
   ssc.checkpoint("hdfs://ip-10-0-0-127.ec2.internal:8020/user/root/checkPointDir")
 
@@ -43,13 +48,22 @@ object ConsumeTwitterStream extends App {
   tweetCounts.print
 
   // write a parquet file to hdfs every 5 minutes
+
   tweetRDD.window(Minutes(5)).foreachRDD {
-    rdd: RDD[Tweet] =>
-      val path = "hdfs://ip-10-0-0-127.ec2.internal:8020/user/root/tweets"
-      val timestamp: Long = System.currentTimeMillis / 1000
-      val prefix = "tweets-" + timestamp
-      val suffix = ".parquet"
-      rdd.write.parquet(prefix + suffix)
+    rdd =>
+      rdd.foreachPartition {
+        partitionOfRecords =>
+          val timestamp: Long = System.currentTimeMillis
+          val prefix = "tweets-" + timestamp
+          val suffix = ".parquet"
+          val fullPath = prefix + suffix
+          val path = new Path(Files.createTempDir().toString, fullPath)
+          val parquetWriter = new AvroParquetWriter[Tweet](path, Tweet.getClassSchema)
+          partitionOfRecords.foreach {
+            tweet => parquetWriter.write(tweet)
+          }
+          parquetWriter.close()
+      }
       println("file written!")
   }
 
