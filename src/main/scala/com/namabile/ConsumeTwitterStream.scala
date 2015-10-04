@@ -5,6 +5,7 @@ import com.namabile.avro.Tweet
 import kafka.serializer.DefaultDecoder
 import org.apache.avro.io.DecoderFactory
 import org.apache.avro.specific.SpecificDatumReader
+import org.apache.avro.generic.IndexedRecord
 import org.apache.spark._
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.streaming.StreamingContext._
@@ -18,7 +19,8 @@ object ConsumeTwitterStream extends App {
   private val conf = ConfigFactory.load()
   private val sparkMaster = conf.getString("addresses.spark_master")
 
-  private val sparkConf = new SparkConf().setAppName("WindowTweetCount").setMaster(sparkMaster)
+  private val sparkConf = new SparkConf().setAppName("WindowTweetCount").setMaster(sparkMaster).set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+  sparkConf.registerAvroSchemas(Tweet.getClassSchema)
   private val ssc = new StreamingContext(sparkConf, Seconds(2))
 
   ssc.checkpoint("hdfs://ip-10-0-0-127.ec2.internal:8020/user/root/checkPointDir")
@@ -37,10 +39,14 @@ object ConsumeTwitterStream extends App {
   val lines = KafkaUtils.createStream[String, Array[Byte], DefaultDecoder, DefaultDecoder](ssc, kafkaConf, topicMap, StorageLevel.MEMORY_AND_DISK_SER).map(_._2)
 
   // Mkae an RDD of Tweet objects
-  val tweetRDD = lines.map{ bytes: Array[Byte] => tweetDecode(bytes) }
+  //val tweetRDD = lines.map{ bytes: Array[Byte] => tweetDecode(bytes) }
+
+  // Get a count of the tweets per user in the last 10 minutes, refreshing every 2 seconds
+  //val tweetCounts = tweetRDD.flatMap{ tweet: Tweet => tweet.text.toString.split(" ") }.map{ s: String => (s, 1L) }.reduceByKeyAndWindow(_ + _, _ - _, Minutes(10), Seconds(2), 2)
+  //tweetCounts.print
 
   // write a parquet file to hdfs every 5 minutes
-  lines.window(Minutes(1)).foreachRDD {
+  lines.window(Minutes(2)).foreachRDD {
     rdd =>
       rdd.foreachPartition {
         partitionOfRecords =>
@@ -51,16 +57,12 @@ object ConsumeTwitterStream extends App {
           val path = new Path("hdfs://ip-10-0-0-127.ec2.internal:8020/user/root/tweets/" + fullPath)
           val parquetWriter = new AvroParquetWriter[Tweet](path, Tweet.getClassSchema)
           partitionOfRecords.foreach {
-            bytes: Array[Byte] => parquetWriter.write(tweetDecode(bytes))
+            bytes: Array[Byte] => parquetWriter.write(tweetDecode(bytes).text.toString)
           }
           parquetWriter.close()
       }
       println("file written!")
   }
-
-  // Get a count of the tweets per user in the last 10 minutes, refreshing every 2 seconds
-  val tweetCounts = tweetRDD.flatMap{ tweet: Tweet => tweet.text.toString.split(" ") }.map{ s: String => (s, 1L) }.reduceByKeyAndWindow(_ + _, _ - _, Minutes(10), Seconds(2), 2)
-  tweetCounts.print
 
   ssc.start()
   ssc.awaitTermination()
