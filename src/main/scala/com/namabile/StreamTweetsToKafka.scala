@@ -44,7 +44,7 @@ object StreamTweetsToKafka {
     val twitterStream = new TwitterStreamFactory(getTwitterConf).getInstance
     twitterStream.addListener(simpleStatusListener)
     twitterStream.filter(new FilterQuery().follow(1344951,5988062,807095,3108351))
-    Thread.sleep(100000)
+    Thread.sleep(10000)
     twitterStream.cleanUp
     twitterStream.shutdown
   }

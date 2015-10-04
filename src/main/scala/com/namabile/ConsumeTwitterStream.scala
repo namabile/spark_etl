@@ -32,19 +32,15 @@ object ConsumeTwitterStream extends App {
 
   val topics = "tweets"
   val topicMap = topics.split(",").map((_, 2)).toMap
-  // Create a new stream which can decode byte arrays.  For this exercise, the incoming stream only contain user and product Ids
+
+  // Create a new stream which can decode byte arrays.
   val lines = KafkaUtils.createStream[String, Array[Byte], DefaultDecoder, DefaultDecoder](ssc, kafkaConf, topicMap, StorageLevel.MEMORY_ONLY_SER).map(_._2)
 
-  // Get a count of the tweets per user in the last 10 minutes, refreshing every 2 seconds
+  // Mkae an RDD of Tweet objects
   val tweetRDD = lines.map{ bytes: Array[Byte] => tweetDecode(bytes) }
-  val tweetCounts = tweetRDD.map{ tweet: Tweet => (tweet.name.toString, 1L) }.reduceByKeyAndWindow(_ + _, _ - _, Minutes(10), Seconds(2), 2)
-
-  // Print out the counts
-  tweetCounts.print
 
   // write a parquet file to hdfs every 5 minutes
-
-  tweetRDD.window(Minutes(5)).foreachRDD {
+  tweetRDD.window(Minutes(1)).foreachRDD {
     rdd =>
       rdd.foreachPartition {
         partitionOfRecords =>
@@ -52,7 +48,7 @@ object ConsumeTwitterStream extends App {
           val prefix = "tweets-" + timestamp
           val suffix = ".parquet"
           val fullPath = prefix + suffix
-          val path = new Path(Files.createTempDir().toString, fullPath)
+          val path = new Path("hdfs://ip-10-0-0-127.ec2.internal:8020/user/root/tweets/" + fullPath)
           val parquetWriter = new AvroParquetWriter[Tweet](path, Tweet.getClassSchema)
           partitionOfRecords.foreach {
             tweet => parquetWriter.write(tweet)
@@ -61,6 +57,10 @@ object ConsumeTwitterStream extends App {
       }
       println("file written!")
   }
+
+  // Get a count of the tweets per user in the last 10 minutes, refreshing every 2 seconds
+  val tweetCounts = tweetRDD.map{ tweet: Tweet => (tweet.name.toString, 1L) }.reduceByKeyAndWindow(_ + _, _ - _, Minutes(10), Seconds(2), 2)
+  tweetCounts.print
 
   ssc.start()
   ssc.awaitTermination()
